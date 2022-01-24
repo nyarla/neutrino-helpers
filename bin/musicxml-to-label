@@ -1,0 +1,73 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use utf8;
+
+use Getopt::Long qw( :config posix_default no_ignore_case bundling auto_help );
+use Pod::Usage qw( pod2usage );
+
+our $PREFIX =
+  $ENV{'NEUTRINO_PREFIX'} || $ENV{'HOME'} . '/.local/share/neutrino';
+
+sub makedir {
+    my $path = shift;
+    return -d $path || system( qw(mkdir -p), $path ) == 0;
+}
+
+sub main {
+    local @ARGV = @_;
+
+    my $score = q{};
+    my $fn    = q{};
+    my $out   = q{};
+
+    if ( @ARGV == 0 ) {
+        pod2usage( -exitval => 0, -verbose => 1 );
+    }
+
+    GetOptions(
+        "s|score|musicxml=s" => \$score,
+        "b|basename=s"       => \$fn,
+        "o|out|output=s"     => \$out,
+        "h|help"             => sub { pod2usage( -verbose => 1 ) },
+    ) or pod2usage( -exitval => 1, -verbose => 1 );
+
+    my $cmd = qq{
+        export LD_LIBRARY_PATH=${PREFIX}/lib:\${LD_LIBRARY_PATH:+:}\$LD_LIBRARY_PATH
+
+        test -d settings || cp -R ${PREFIX}/share/settings .
+        ${PREFIX}/bin/musicxml-to-label ${score} ${out}/full/${fn}.lab ${out}/mono/${fn}.lab
+    };
+
+    makedir("${out}/full");
+    makedir("${out}/mono");
+
+    print `${cmd}`;
+}
+
+main(@ARGV);
+
+=head1 NAME
+
+musicxml-to-label - A wrapper script for NEUTRINO's musicXMLToLabel command
+
+=head1 SYNOPSIS
+
+  $ music-to-xml -s <score.musicxml> -b <example> -o <output dir>
+
+=head1 OPTIONS
+
+=head2 -s, --score, or --musicxml
+
+A file of musicxml file
+
+=head2 -b or --basename
+
+A basename of output files
+
+=head2 -o, --out or --output
+
+A output directory proceed files.
+
+=cut
