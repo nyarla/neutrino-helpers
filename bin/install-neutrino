@@ -1,0 +1,321 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use utf8;
+
+use Pod::Usage qw( pod2usage );
+
+our $NEUTRINO_CACHE = $ENV{'HOME'} . '/.cache/neutrino';
+our $NEUTRINO_DEST  = $ENV{'HOME'} . '/.local/share/neutrino';
+
+our $NEUTRINO_DOWNLOAD = {
+    neutrino => {
+        id     => '1pfPJr4oW8KfnaqXes_ZC3aI9g2B5w0xj',
+        sha256 =>
+          'cdf4480f76219aa9e1f48bb3ec594e9d7d25e9211e64c8cbdd1eb13eb188bced',
+    },
+
+    yoko => {
+        id     => '1WS1hhVeCvZYBWv-phq5KBGQSPr3840W_',
+        sha256 =>
+          '73f68a5b74eb4f16041d97d62a8a9b41cc64dbad6e900b0449de1ef80457c427',
+    },
+
+    zunko => {
+        id     => '1Il1v5G9Q-Mcz5qfUVvQZgpeo3sD9nMAp',
+        sha256 =>
+          '6246b757e3b3c8412d53f00dd756899d1dc24208813d336f13180173ae70f0e8',
+    },
+
+    'kiritan' => {
+        id     => '13IjPNrn9i6WNO6nn4MqLCsOMtvp-EbBQ',
+        sha256 =>
+          'f3457869e55716e74f537c088222eee35faa52acb2f54fc4f9dcba72765d9b18',
+    },
+
+    'itako' => {
+        id     => '1haURHjVrm-lGR2KyR8rL20vb2Dj44EhM',
+        sha256 =>
+          '963959a21da164b97699bff24c4aeafdcbada48cdf71ac4ff0d4d275dab169c0',
+    },
+
+    'nakumo' => {
+        id     => '18blHLttB2pMVGxZWlLmjdnAJZuofj8id',
+        sha256 =>
+          '62e9cfa5c58a1c0a51d3ec867f21c36826b123846514c329146d5f1741f8da46',
+    },
+
+    'seven' => {
+        id     => '182uF-5OJhUV5a0Dea856GDQytzAgmcyy',
+        sha256 =>
+          'cfa7850c32d1c1e7c953b587b9197952de18b279a7a612edd840706d769f846c',
+    },
+
+    'jsut' => {
+        id     => '1BNYgYtYlp9U1mub-m_4UVn7E6ouJcitw',
+        sha256 =>
+          'b07bfdf2b1642cdbd2ecd500c4856f10e550b7b3659a3d6e2ca32a8ad868f7d0',
+    }
+};
+
+sub makedir {
+    my $dir = shift;
+
+    if ( !-d $dir ) {
+        return system( qw(mkdir -p), $dir ) == 0;
+    }
+
+    return 1;
+}
+
+sub tempdir {
+    return $NEUTRINO_CACHE . '/tmp';
+}
+
+sub cache {
+    my $file = shift;
+    return $NEUTRINO_CACHE . '/' . $file;
+}
+
+sub msg {
+    my $msg = shift;
+    print "---> ${msg}\n";
+}
+
+sub sha256 {
+    my $file = shift;
+    my $out  = `sha256sum -b '${file}'`;
+    chomp($out);
+    return ( split( q{ }, $out ) )[0];
+}
+
+sub copy {
+    my ( $from, $to ) = @_;
+    return `cp -R ${from} ${to}`;
+}
+
+sub download_gdrive {
+    my ( $src, $out ) = @_;
+    my $url = "https://drive.google.com/uc?export=download&id=${src}";
+
+    my $stdout = `curl -sc ${NEUTRINO_CACHE}/cookie '${url}'`;
+    chomp($stdout);
+
+    if ( $stdout =~ m{Bad Request|Too many users} ) {
+        msg("Google Drive respond Too many request. please try later");
+        exit 1;
+    }
+
+    my $confirm = ( $stdout =~ m{confirm=([^&]+)&} )[0];
+    if (
+        system(
+"curl -Lb ${NEUTRINO_CACHE}/cookie '${url}&confirm=${confirm}' -o '$out'"
+        ) != 0
+      )
+    {
+        msg("failed to download zip archive: ${url}");
+        exit 1;
+    }
+
+    return 1;
+}
+
+sub unzip {
+    my $zip = shift;
+
+    my $tmp = tempdir;
+
+    if ( -d $tmp ) {
+        system( qw(rm -rf), $tmp );
+    }
+    makedir($tmp);
+    if ( system( qw(unzip -d), $tmp, $zip ) == 0 ) {
+        return $tmp;
+    }
+
+    msg("failed to unzip archive. file is broken?");
+    exit 1;
+}
+
+sub install_neutrino {
+    my $out = shift;
+
+    msg("Download NEUTRINO");
+    my $zip = cache('neutrino.zip');
+    if ( !-e $zip || sha256($zip) ne $NEUTRINO_DOWNLOAD->{neutrino}->{sha256} )
+    {
+        my $count = 0;
+        while ( !-e $zip
+            || sha256($zip) ne $NEUTRINO_DOWNLOAD->{neutrino}->{sha256} )
+        {
+            download_gdrive( $NEUTRINO_DOWNLOAD->{neutrino}->{id}, $zip );
+
+            if ( $count > 0 ) {
+                msg("sha256sum mismatch. retry ... (count: ${count})");
+            }
+
+            if ( $count > 5 ) {
+                msg("failed to download zip");
+                exit 1;
+            }
+
+            $count++;
+        }
+    }
+
+    msg("Extract files from ${zip}");
+    my $src = unzip($zip) . "/NEUTRINO";
+
+    msg("Install NEUTRINO");
+    makedir("${out}/bin");
+    makedir("${out}/lib");
+    makedir("${out}/share/models/MERROW");
+    makedir("${out}/share/scripts");
+    makedir("${out}/share/settings");
+    makedir("${out}/lib");
+    makedir("${out}/lib/pythonlib");
+
+    copy( "${src}/bin/NEUTRINO",        "${out}/bin/neutrino" );
+    copy( "${src}/bin/NSF_IO",          "${out}/bin/nsf-io" );
+    copy( "${src}/bin/WORLD",           "${out}/bin/world" );
+    copy( "${src}/bin/musicXMLtoLabel", "${out}/bin/musicxml-to-label" );
+
+    copy( "${src}/NSF/bin/currennt", "${out}/bin/currennt" );
+
+    `chmod +x ${out}/bin/*`;
+
+    copy( "${src}/bin/*.so.*",        "${out}/lib" );
+    copy( "${src}/NSF/bin/*.so.*",    "${out}/lib" );
+    copy( "${src}/NSF/bin/pyTools/*", "${out}/lib/pythonlib/" );
+
+    copy( "${src}/settings/*", "${out}/share/settings/" );
+
+    copy( "${src}/NSF/scripts/*", "${out}/share/scripts/" );
+    copy( "${src}/NSF/config.py", "${out}/share/scripts/config.py" );
+
+    copy( "${src}/model/MERROW/*", "${out}/share/models/MERROW/" );
+
+    msg("Done");
+}
+
+sub install_library {
+    my $pkg = shift;
+    my $out = shift;
+
+    my $name = uc $pkg;
+
+    msg("Download ${name}");
+    my $zip = cache("${pkg}.zip");
+    if ( !-e $zip || sha256($zip) ne $NEUTRINO_DOWNLOAD->{$pkg}->{sha256} ) {
+        my $count = 0;
+        while ( !-e $zip
+            || sha256($zip) ne $NEUTRINO_DOWNLOAD->{$pkg}->{sha256} )
+        {
+            download_gdrive( $NEUTRINO_DOWNLOAD->{$pkg}->{id}, $zip );
+
+            if ( $count > 0 ) {
+                msg("sha256sum mismatch. retry ... (count: ${count})");
+            }
+
+            if ( $count > 5 ) {
+                msg("failed to download zip");
+                exit 1;
+            }
+
+            $count++;
+        }
+    }
+
+    msg("Extract files from ${zip}");
+    my $src = unzip($zip);
+
+    msg("Install ${name} model");
+    makedir("${out}/share/models/${name}");
+    copy( "${src}/*/*/*", "${out}/share/models/${name}/" );
+
+    msg("Done");
+}
+
+sub main {
+    my $pkg = shift || q{};
+    my $dir = shift || $NEUTRINO_DEST;
+
+    makedir($NEUTRINO_CACHE);
+    makedir($NEUTRINO_DEST);
+
+    if ( lc($pkg) eq 'neutrino' ) {
+        print "Target package: ${pkg}\n";
+        install_neutrino($dir);
+        exit 0;
+    }
+
+    if ( exists $NEUTRINO_DOWNLOAD->{ lc($pkg) }
+        && $NEUTRINO_DOWNLOAD->{ lc($pkg) }->{id} ne q{} )
+    {
+        print "Target package: ${pkg}\n";
+        install_library( $pkg, $dir );
+        exit 0;
+    }
+
+    pod2usage( -verbose => 1 );
+}
+
+main(@ARGV);
+
+=encoding utf-8
+
+=head1 NAME
+
+install-neutrino - a installer script for L<https://n3utrino.work>
+
+=head1 SYNOPSIS
+
+B<example:>
+
+  $ install-neutrino neutrio # install NEUTRINO software
+  $ install-neutrino kiritan # install KIRITAN model
+
+B<arguments:>
+
+  $ install-neutrino <software> [install prefix]
+
+=head1 OPTIONS
+
+=head2 software
+
+=over
+
+=item NEUTRINO (neutrino)
+
+=back
+
+=head2 models
+
+=over
+
+=item JSUT (jsut)
+
+=item No.7 (seven)
+
+=item ナクモ βテスト版 (nakumo)
+
+=item めろう (merou)
+
+=item 東北イタコ (itako)
+
+=item 東北きりた (kiritan)
+
+=item 東北ずん子 (zunko)
+
+=item 謠子 (yoko)
+
+=back
+
+=head1 LICENSE
+
+This scripts is licensed under the same terms as Perl.
+
+=cut
+
+# vim: ft=perl :
