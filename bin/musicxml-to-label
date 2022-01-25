@@ -4,46 +4,77 @@ use strict;
 use warnings;
 use utf8;
 
-use Getopt::Long qw( :config posix_default no_ignore_case bundling auto_help );
+our $VERSION = "v0.0.2";
+
+use Data::Dumper qw( Dumper );
+
+use Getopt::Long
+  qw( :config posix_default no_ignore_case bundling auto_help auto_version );
 use Pod::Usage qw( pod2usage );
 
 our $PREFIX =
   $ENV{'NEUTRINO_PREFIX'} || $ENV{'HOME'} . '/.local/share/neutrino';
 
-sub makedir {
+sub makedir($) {
     my $path = shift;
     return -d $path || system( qw(mkdir -p), $path ) == 0;
+}
+
+sub err($) {
+    my $msg = shift;
+    print STDERR ( $msg, "\n" );
+    exit 1;
 }
 
 sub main {
     local @ARGV = @_;
 
-    my $score = q{};
-    my $fn    = q{};
-    my $out   = q{};
-
     if ( @ARGV == 0 ) {
-        pod2usage( -exitval => 0, -verbose => 1 );
+        pod2usage( -extval => 0, -verbose => 1 );
     }
 
+    my $score = q{};
+    my $out   = q{};
+
     GetOptions(
-        "s|score|musicxml=s" => \$score,
-        "b|basename=s"       => \$fn,
-        "o|out|output=s"     => \$out,
-        "h|help"             => sub { pod2usage( -verbose => 1 ) },
+        "score|musicxml|s|x=s" => \$score,
+        "out|output|o=s"       => \$out,
+        "help|h"    => sub { pod2usage( -exitval => 0, -verbose => 1 ); },
+        "version|v" =>
+          sub { print(( split q{/}, $0 )[-1], " - ", $VERSION, "\n"); exit 0 },
     ) or pod2usage( -exitval => 1, -verbose => 1 );
 
-    my $cmd = qq{
-        export LD_LIBRARY_PATH=${PREFIX}/lib:\${LD_LIBRARY_PATH:+:}\$LD_LIBRARY_PATH
+    if ( $score eq q{} ) {
+          err "argument `score` is empty.";
+    }
 
-        test -d settings || cp -R ${PREFIX}/share/settings .
-        ${PREFIX}/bin/musicxml-to-label ${score} ${out}/full/${fn}.lab ${out}/mono/${fn}.lab
-    };
+    if ( !-e $score ) {
+          err "argument `score` (${score}) does not exists";
+    }
 
-    makedir("${out}/full");
-    makedir("${out}/mono");
+    if ( -d $score ) {
+          err "argument `score` is not file. it looks like directory?";
+    }
 
-    print `${cmd}`;
+    if ( $out eq q{} ) {
+          err "argument `out` is empty.";
+    }
+
+    if ( -e $out && !-d $out ) {
+          err "output directory already exists as file";
+    }
+
+    if ( !-d $out ) {
+        makedir($out);
+    }
+
+    my $cmd = <<"...";
+export LD_LIBRARY_PATH=${PREFIX}/lib:\${LD_LIBRARY_PATH:+:}\$LD_LIBRARY_PATH
+test -d settings || cp -R ${PREFIX}/share/settings .
+${PREFIX}/bin/musicxml-to-label ${score} ${out}/full.lab ${out}/mono.lab
+...
+
+    system( qw(sh -c), $cmd );
 }
 
 main(@ARGV);
@@ -54,20 +85,28 @@ musicxml-to-label - A wrapper script for NEUTRINO's musicXMLToLabel command
 
 =head1 SYNOPSIS
 
-  $ music-to-xml -s <score.musicxml> -b <example> -o <output dir>
+  $ music-to-xml --score </path/to/score.musicxml> --out </path/to/out/dir>
 
 =head1 OPTIONS
 
-=head2 -s, --score, or --musicxml
+=head2 --score (alias: -s, -x or --musicxml)
 
 A file of musicxml file
 
-=head2 -b or --basename
-
-A basename of output files
-
-=head2 -o, --out or --output
+=head2 --out (alias: -o or --output)
 
 A output directory proceed files.
+
+=head1 SEE ALSO
+
+L<https://n3utrino.work>
+
+=head1 AUTHOR OF THIS SCRIPT
+
+OKAMURA Naoki aka nyarla E<lt>nyarla@kalaclista.comE<gt>
+
+=head1 LICENSE
+
+This scripts is licensed under the same terms as Perl.
 
 =cut
