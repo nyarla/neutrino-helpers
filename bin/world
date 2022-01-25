@@ -1,0 +1,135 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use utf8;
+
+our $VERSION = "v0.0.1";
+
+use Getopt::Long qw( :config posix_default no_ignore_case bundling auto_help );
+use Pod::Usage qw( pod2usage );
+
+our $PREFIX =
+  $ENV{'NEUTRINO_PREFIX'} || $ENV{'HOME'} . '/.local/share/neutrino';
+
+sub err {
+    my $msg = shift;
+    print STDERR ( $msg, "\n" );
+}
+
+sub main {
+    local @ARGV = @_;
+
+    if ( @ARGV == 0 ) {
+        pod2usage( -exitval => 1, -verbose => 1 );
+    }
+
+    my (
+        $f0,     $mgc,      $bap,    $pitch,   $formant,
+        $spitch, $sformant, $breath, $threads, $out
+    );
+
+    GetOptions(
+        "f0=s"                  => \$f0,
+        "mgc=s"                 => \$mgc,
+        "bap=s"                 => \$bap,
+        "pitchShift=f"          => \$pitch,
+        "formantShift=f"        => \$formant,
+        "smoothPitch=f"         => \$spitch,
+        "smoothFormant=f"       => \$sformant,
+        "enhancedBreathiness=f" => \$breath,
+        "out|output|o=s"        => \$out,
+        "threads|p=s"            => \$threads,
+        "help|h"    => sub { pod2usage( -exitval => 0, -verbose => 1 ); },
+        "version|v" =>
+          sub { print(( split q{/}, $0 )[-1], " - ", $VERSION, "\n"); exit 0 },
+    ) or pod2usage( -exitval => 1, -verbose => 1 );
+
+    if ( !-e $f0 ) {
+          err ".f0 file missing: ${f0}";
+        exit 1;
+    }
+
+    if ( !-e $mgc ) {
+          err ".mgc file missing: ${mgc}";
+        exit 1;
+    }
+
+    if ( !-e $bap ) {
+          err ".bap file missing: ${bap}";
+        exit 1;
+    }
+
+    if ( -d $out ) {
+          err "ouput path already exists as directory: ${out}";
+        exit 1;
+    }
+
+    $pitch    //= 1.0;
+    $formant  //= 1.0;
+    $spitch   //= 0.0;
+    $sformant //= 0.0;
+    $breath   //= 0.0;
+    $threads  //= 3;
+
+    my $cmd = <<"...";
+export LD_LIBRARY_PATH=${PREFIX}/lib\${LD_LIBRARY_PATH:+:}\$LD_LIBRARY_PATH
+
+${PREFIX}/bin/world ${f0} ${mgc} ${bap} \\
+  -f ${pitch} -m ${formant} \\
+  -p ${spitch} -c ${sformant} -b ${breath} \\
+  -o ${out} -n ${threads} -t
+...
+
+    system( qw(sh -c), $cmd );
+}
+
+main(@ARGV);
+
+=head1 NAME
+
+world - A wrapper script of NEUTRINO's world command
+
+=head1 SYNOPSIS
+
+  $ world --f0 MERROW.f0 --mgc MERROW.mgc --bap MERROW.bap --out synth.wav
+
+=head1 OPTIONS
+
+=head2 --f0
+
+Path to NEUTRINO's f0 file
+
+=head2 --mgc
+
+Path to NEUTRINO's mgc file
+
+=head2 --bap
+
+Path to NEUTRINO's bap file
+
+=head2 --pitchShift, --formantShift, --smoothPicth or --smoothFormant
+
+Set parameters of NEUTRINO's WORLD vocoder
+
+=head2 -o, --out ot --output
+
+Path to output audio (.wav) file
+
+=head2 -p or --threads
+
+The number of threads use.
+
+=head1 SEE ALSO
+
+L<https://n3utrino.work>
+
+=head1 AUTHOR OF THIS SCRIPT
+
+OKAMURA Naoki aka nyarla E<lt>nyarla@kalaclista.comE<gt>
+
+=head1 LICENSE
+
+This scripts is licensed under the same terms as Perl.
+
+=cut
