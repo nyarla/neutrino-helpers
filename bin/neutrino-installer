@@ -1,0 +1,379 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use utf8;
+
+our $VERSION = "v0.0.2";
+
+use Getopt::Long
+  qw( :config posix_default no_ignore_case bundling auto_help auto_version );
+
+use Pod::Usage qw( pod2usage );
+use File::Temp qw( tempdir );
+
+our $CACHE = $ENV{'NEUTRINO_CACHE'} || $ENV{'HOME'} . '/.cache/neutrino';
+our $PREFIX =
+  $ENV{'NEUTRINO_PREFIX'} || $ENV{'HOME'} . '/.local/share/neutrino';
+
+our $DB = {
+    neutrino => {
+        id     => '1pfPJr4oW8KfnaqXes_ZC3aI9g2B5w0xj',
+        sha256 =>
+          'cdf4480f76219aa9e1f48bb3ec594e9d7d25e9211e64c8cbdd1eb13eb188bced',
+    },
+
+    yoko => {
+        id     => '1WS1hhVeCvZYBWv-phq5KBGQSPr3840W_',
+        sha256 =>
+          '73f68a5b74eb4f16041d97d62a8a9b41cc64dbad6e900b0449de1ef80457c427',
+    },
+
+    zunko => {
+        id     => '1Il1v5G9Q-Mcz5qfUVvQZgpeo3sD9nMAp',
+        sha256 =>
+          '6246b757e3b3c8412d53f00dd756899d1dc24208813d336f13180173ae70f0e8',
+    },
+
+    'kiritan' => {
+        id     => '13IjPNrn9i6WNO6nn4MqLCsOMtvp-EbBQ',
+        sha256 =>
+          'f3457869e55716e74f537c088222eee35faa52acb2f54fc4f9dcba72765d9b18',
+    },
+
+    'itako' => {
+        id     => '1haURHjVrm-lGR2KyR8rL20vb2Dj44EhM',
+        sha256 =>
+          '963959a21da164b97699bff24c4aeafdcbada48cdf71ac4ff0d4d275dab169c0',
+    },
+
+    'nakumo' => {
+        id     => '18blHLttB2pMVGxZWlLmjdnAJZuofj8id',
+        sha256 =>
+          '62e9cfa5c58a1c0a51d3ec867f21c36826b123846514c329146d5f1741f8da46',
+    },
+
+    'seven' => {
+        id     => '182uF-5OJhUV5a0Dea856GDQytzAgmcyy',
+        sha256 =>
+          'cfa7850c32d1c1e7c953b587b9197952de18b279a7a612edd840706d769f846c',
+    },
+
+    'jsut' => {
+        id     => '1BNYgYtYlp9U1mub-m_4UVn7E6ouJcitw',
+        sha256 =>
+          'b07bfdf2b1642cdbd2ecd500c4856f10e550b7b3659a3d6e2ca32a8ad868f7d0',
+    }
+};
+
+sub makedir {
+    my $dir = shift;
+
+    if ( !-d $dir ) {
+        return system( qw(mkdir -p), $dir ) == 0;
+    }
+
+    return 1;
+}
+
+sub cache($) {
+    my $file = shift;
+    return $CACHE . '/' . $file;
+}
+
+sub title($) {
+    my $msg = shift;
+    print STDOUT ( $msg, "\n" );
+}
+
+sub err($) {
+    my $msg = shift;
+    print STDERR ( $msg, "\n" );
+}
+
+sub msg($) {
+    my $msg = shift;
+    print "---> ${msg}\n";
+}
+
+sub sha256 {
+    my $file = shift;
+    my $out  = `sha256sum -b '${file}'`;
+    chomp($out);
+    return ( split( q{ }, $out ) )[0];
+}
+
+sub copy {
+    my ( $from, $to ) = @_;
+    return `cp -R ${from} ${to}`;
+}
+
+sub download_gdrive {
+    my ( $out, $id ) = @_;
+
+    msg "download from Google Drive (id: ${id})";
+
+    my $url = "https://drive.google.com/uc?export=download&id=${id}";
+
+    my $stdout = `curl -sc ${CACHE}/cookie '${url}'`;
+    chomp($stdout);
+
+    if ( $stdout =~ m{Bad Request|Too many users} ) {
+        err "Google Drive responed Too many request. please try later";
+        exit 1;
+    }
+
+    my $confirm = ( $stdout =~ m{confirm=([^&]+)&} )[0];
+    my $ret =
+      system( qw(curl -Lb), "${CACHE}/cookie", "${url}&confirm=${confirm}",
+        "-o", $out );
+
+    if ( $ret != 0 ) {
+          err "failed to download archive file from Google Drive";
+        exit 1;
+    }
+
+    return 1;
+}
+
+sub unzip {
+    my $zip = shift;
+
+    my $dir = tempdir( CLEANUP => 1 );
+    my $ret = system( qw(unzip -d), $dir, $zip );
+
+    if ( $ret != 0 ) {
+          err "failed to unzip file (${zip}). file is broken?";
+        exit 1;
+    }
+
+    return $dir;
+}
+
+sub install_software {
+    my ( $software, $prefix ) = @_;
+
+    my $app    = lc $software;
+    my $name   = uc $software;
+    my $id     = $DB->{$app}->{'id'};
+    my $sha256 = $DB->{$app}->{'sha256'};
+
+    title "Install ${name}";
+    my $zip = cache "${id}.zip";
+
+    if ( ! -f $zip ) {
+        download_gdrive( $zip, $id );
+    }
+
+    if ( sha256($zip) ne $sha256 ) {
+          err "sha256sum mismatch: it maybe failed to download zip file.";
+        exit 1;
+    }
+
+    msg "extract files from ${zip}";
+    my $dir = unzip($zip);
+
+    msg "install files to ${prefix}";
+    if ( $app eq 'neutrino' ) {
+        install_neutrino( $app, $dir, $prefix );
+    }
+    else {
+        install_model( $app, $dir, $prefix );
+    }
+
+    title "Done.";
+
+    return 1;
+}
+
+sub install_neutrino {
+    my ( $app, $src, $prefix ) = @_;
+
+    my @dirs = qw(
+      bin
+      lib
+      lib/pythonlib
+      share
+      share/models
+      share/models/MERROW
+      share/scripts
+      share/settings
+    );
+
+    makedir("${prefix}/${_}") for @dirs;
+
+    my @files = (
+        [ "NSF/bin/currennt",    "bin/currennt" ],
+        [ "bin/NEUTRINO",        "bin/neutrino" ],
+        [ "bin/NSF_IO",          "bin/nsf-io" ],
+        [ "bin/WORLD",           "bin/world" ],
+        [ "bin/musicXMLtoLabel", "bin/musicxml-to-label" ],
+
+        [ "NSF/bin/*.so.*",    "lib" ],
+        [ "NSF/bin/pyTools/*", "lib/pythonlib/" ],
+        [ "NSF/config.py",     "share/scripts/config.py" ],
+        [ "NSF/scripts/*",     "share/scripts/" ],
+        [ "bin/*.so.*",        "lib" ],
+        [ "settings/*",        "share/settings/" ],
+
+        [ "model/MERROW/*", "share/models/MERROW" ],
+    );
+
+    for my $task (@files) {
+        msg "copy " . $task->[1];
+        copy( $src . "/*/" . $task->[0], $prefix . "/" . $task->[1] );
+    }
+
+    `chmod +x ${prefix}/bin/*`;
+}
+
+sub install_model {
+    my ( $app, $src, $prefix ) = @_;
+
+    my $name = uc $app;
+
+    makedir("${prefix}/share/modles/${name}");
+    msg "copy ${app} model";
+    copy( "${src}/*/*/*", "${prefix}/share/models/${name}/" );
+}
+
+sub main {
+    local @ARGV = @_;
+
+    if ( @ARGV == 0 ) {
+        pod2usage( -exitval => 1, -verbose => 1 );
+    }
+
+    my $prefix    = q{};
+    my $install   = q{};
+    my $uninstall = q{};
+    my $confirm   = q{};
+
+    GetOptions(
+        "prefix=s"       => \$prefix,
+        "install=s"      => \$install,
+        "uninstall=s" => \$uninstall,
+        "help|h"         => sub {
+            pod2usage( -exitval => 0, -verbose => 1 );
+        },
+        "version|v" => sub {
+            print( ( split q{/}, $0 )[-1], " - ", $VERSION, "\n" );
+            exit 0;
+        },
+    ) or pod2usage( exitval => 1, -verbose => 1 );
+
+    if ( $install ne q{} && $uninstall ne q{} ) {
+        print STDERR "You can only specified --install or --uninstall task.\n";
+        exit 1;
+    }
+
+    if ( $prefix eq q{} ) {
+      $prefix = $PREFIX;
+    }
+
+    if ( $prefix !~ m{/neutrino} ) {
+      print STDERR "Path to NEUTRINO prefix should be contained `neutrino` directory.";
+      exit 1;
+    }
+
+    if ( $install ne q{} ) {
+        my $app = lc $install;
+        if ( !exists $DB->{$app} ) {
+            print STDERR "Unknown software: ${install}\n";
+            exit 1;
+        }
+
+        install_software( $app, $prefix );
+    }
+
+    if ( $uninstall ne q{} ) {
+        if ( $uninstall ne q{YES} ) {
+            print STDERR
+"if you really want to uninstall NEUTRINO,\nyou must specified upper cased 'yes' to this argument.\n";
+            exit 1;
+        }
+
+        if ( ! -e "${prefix}/bin/neutrino" ) {
+            print STDERR
+              "this prefix does not looks like NEUTRINO installed prefix.\n";
+            exit 1;
+        }
+
+        system( qw(rm -rf), $prefix );
+    }
+}
+
+main(@ARGV);
+
+=encoding utf-8
+
+=head1 NAME
+
+install-neutrino - a installer script for L<https://n3utrino.work>
+
+=head1 SYNOPSIS
+
+  # install software
+  $ neutrino-installer --install neutrino
+  $ neutrino-installer --install neutrino --prefix $(pwd)/neutrino_cache
+
+  # install library
+  $ neutrino-installer --install kiritan
+
+  # uninstall all
+  $ neutrino-installer --uninstall=YES
+
+=head1 OPTIONS
+
+=head2 --prefix </path/to/prefix>
+
+Path to custom install prefix.
+
+This path must include C<neutrino> directory,
+and default path is B<$HOME/.local/share/neutrino>. 
+
+=head2 --install <software>
+
+Install specified software. available software is:
+
+=over
+
+=item NEUTRINO (neutrino)
+
+=item JSUT (jsut)
+
+=item No.7 (seven)
+
+=item めろう (merou)
+
+=item ナクモ βテスト版 (nakumo)
+
+=item 東北きりた (kiritan)
+
+=item 東北ずん子 (zunko)
+
+=item 東北イタコ (itako)
+
+=item 謠子 (yoko)
+
+=back
+
+=head2 --uninstall=YES
+
+Uninstall B<ALL NEUTRINO SOFTWARES>.
+
+This command just C<rm -rf $prefix>.
+
+=head1 SEE ALSO
+
+L<https://n3utrino.work>
+
+=head1 AUTHOR OF THIS SCRIPT
+
+OKAMURA Naoki aka nyarla E<lt>nyarla@kalaclista.comE<gt>
+
+=head1 LICENSE
+
+This scripts is licensed under the same terms as Perl.
+
+=cut
