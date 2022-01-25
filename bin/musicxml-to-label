@@ -87,11 +87,11 @@ musicxml-to-label - A wrapper script for NEUTRINO's musicXMLToLabel command
 
 =head1 OPTIONS
 
-=head2 --score (alias: -s, -x or --musicxml)
+=head2 -s, -x, --score or --musicxml
 
 A file of musicxml file
 
-=head2 --out (alias: -o or --output)
+=head2 -o, --out or --output
 
 A output directory proceed files.
 
