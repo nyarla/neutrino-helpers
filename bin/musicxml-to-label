@@ -4,9 +4,7 @@ use strict;
 use warnings;
 use utf8;
 
-our $VERSION = "v0.0.2";
-
-use Data::Dumper qw( Dumper );
+our $VERSION = "v0.0.3";
 
 use Getopt::Long
   qw( :config posix_default no_ignore_case bundling auto_help auto_version );
