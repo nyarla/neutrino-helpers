@@ -28,7 +28,7 @@ sub main {
     local @ARGV = @_;
 
     if ( @ARGV == 0 ) {
-        pod2usage( -extval => 0, -verbose => 1 );
+        pod2usage( -exitval => 0, -verbose => 1 );
     }
 
     my $score = q{};
