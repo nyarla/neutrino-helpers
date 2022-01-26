@@ -1,0 +1,147 @@
+#!/usr/bin/env perl
+
+use strict;
+use warnings;
+use utf8;
+
+our $VERSION = "v0.0.1";
+
+use Getopt::Long qw( :config posix_default no_ignore_case bundling auto_help );
+use Pod::Usage qw( pod2usage );
+
+our $PREFIX =
+  $ENV{'NEUTRINO_PREFIX'} || $ENV{'HOME'} . '/.local/share/neutrino';
+
+sub err($) {
+    my $msg = shift;
+    print STDERR ( $msg, "\n" );
+}
+
+sub main {
+    local @ARGV = @_;
+
+    if ( @ARGV == 0 ) {
+        pod2usage( -exitval => 1, -verbose => 1 );
+    }
+
+    my ( $label, $timing, $f0, $mgc, $bap, $model, $out );
+
+    GetOptions(
+        "label|l=s"      => \$label,
+        "timing|t=s"     => \$timing,
+        "f0=s"           => \$f0,
+        "mgc=s"          => \$mgc,
+        "bap=s"          => \$bap,
+        "model|m=s"      => \$model,
+        "out|output|o=s" => \$out,
+    ) or pod2usage( -exitval => 1, -verbose => 1 );
+
+    if ( !-e $label ) {
+          err "label file is missing: ${label}";
+        exit 1;
+    }
+
+    if ( !-e $timing ) {
+          err "timing file is missing: ${timing}";
+        exit 1;
+    }
+
+    if ( !-e $f0 ) {
+          err ".f0 file missing: ${f0}";
+        exit 1;
+    }
+
+    if ( !-e $mgc ) {
+          err ".mgc file missing: ${mgc}";
+        exit 1;
+    }
+
+    if ( !-e $bap ) {
+          err ".bap file missing: ${bap}";
+        exit 1;
+    }
+
+    if ( -d $out ) {
+          err "ouput path already exists as directory: ${out}";
+        exit 1;
+    }
+
+    if ( !-d "${PREFIX}/share/models/${model}" ) {
+          err "model (${model}) is not found.";
+        exit 1;
+    }
+
+    my $cmd = <<"...";
+export LD_LIBRARY_PATH=${PREFIX}/lib:\$(pwd)/NSF/bin:\${LD_LIBRARY_PATH:+:}\$LD_LIBRARY_PATH
+
+test -d NSF || mkdir -p NSF
+cp -R ${PREFIX}/share/nsf/* NSF/
+
+sed -i "s|prjdir + '/../model/' + ||" NSF/config.py
+
+chmod +x NSF/Run.sh
+chmod +x NSF/bin/currennt
+
+${PREFIX}/bin/nsf-io \\
+  ${label} ${timing} \\
+  ${f0} ${mgc} ${bap} \\
+  ${PREFIX}/share/models/${model} \\
+  ${out} -t
+...
+
+    system( qw(sh -c), $cmd );
+}
+
+main(@ARGV);
+
+=head1 NAME
+
+nsf-io - A wrapper script for NEUTRINO's nsf-io command
+
+=head1 SYNOPSIS
+
+  $ nsf-io -l out/full.lab -t out/timing.lab --f0 out/MERROW.f0 --mgc out/MERROW.mgc --bap out/MERROW.bap -m MERROW -o test.wav
+
+=head1 OPTIONS
+
+=head2 -l or --label
+
+Path to label file
+
+=head2 -t or --timing
+
+Path to timing file
+
+=head2 --f0
+
+Path to f0 file
+
+=head2 --mgc
+
+Path to mgc file
+
+=head2 --bap
+
+Path to bap file
+
+=head2 -m or --model
+
+The name of NEUTRINO's model
+
+=head2 -o, --out or --output
+
+Path to output audio (.wav) file.
+
+=head1 SEE ALSO
+
+L<https://n3utrino.work>
+
+=head1 AUTHOR OF THIS SCRIPT
+
+OKAMURA Naoki aka nyarla E<lt>nyarla@kalaclista.comE<gt>
+
+=head1 LICENSE
+
+This scripts is licensed under the same terms as Perl.
+
+=cut

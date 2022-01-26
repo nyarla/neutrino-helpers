@@ -119,7 +119,7 @@ sub download_gdrive {
     chomp($stdout);
 
     if ( $stdout =~ m{Bad Request|Too many users} ) {
-        err "Google Drive responed Too many request. please try later";
+          err "Google Drive responed Too many request. please try later";
         exit 1;
     }
 
@@ -161,7 +161,7 @@ sub install_software {
     title "Install ${name}";
     my $zip = cache "${id}.zip";
 
-    if ( ! -f $zip ) {
+    if ( !-f $zip ) {
         download_gdrive( $zip, $id );
     }
 
@@ -196,6 +196,7 @@ sub install_neutrino {
       share
       share/models
       share/models/MERROW
+      share/nsf
       share/scripts
       share/settings
     );
@@ -209,12 +210,10 @@ sub install_neutrino {
         [ "bin/WORLD",           "bin/world" ],
         [ "bin/musicXMLtoLabel", "bin/musicxml-to-label" ],
 
-        [ "NSF/bin/*.so.*",    "lib" ],
-        [ "NSF/bin/pyTools/*", "lib/pythonlib/" ],
-        [ "NSF/config.py",     "share/scripts/config.py" ],
-        [ "NSF/scripts/*",     "share/scripts/" ],
-        [ "bin/*.so.*",        "lib" ],
-        [ "settings/*",        "share/settings/" ],
+        [ 'NSF/*', "share/nsf/" ],
+
+        [ "bin/*.so.*", "lib" ],
+        [ "settings/*", "share/settings/" ],
 
         [ "model/MERROW/*", "share/models/MERROW" ],
     );
@@ -250,10 +249,10 @@ sub main {
     my $confirm   = q{};
 
     GetOptions(
-        "prefix=s"       => \$prefix,
-        "install=s"      => \$install,
+        "prefix=s"    => \$prefix,
+        "install=s"   => \$install,
         "uninstall=s" => \$uninstall,
-        "help|h"         => sub {
+        "help|h"      => sub {
             pod2usage( -exitval => 0, -verbose => 1 );
         },
         "version|v" => sub {
@@ -268,12 +267,13 @@ sub main {
     }
 
     if ( $prefix eq q{} ) {
-      $prefix = $PREFIX;
+        $prefix = $PREFIX;
     }
 
     if ( $prefix !~ m{/neutrino} ) {
-      print STDERR "Path to NEUTRINO prefix should be contained `neutrino` directory.";
-      exit 1;
+        print STDERR
+          "Path to NEUTRINO prefix should be contained `neutrino` directory.";
+        exit 1;
     }
 
     if ( $install ne q{} ) {
@@ -293,7 +293,7 @@ sub main {
             exit 1;
         }
 
-        if ( ! -e "${prefix}/bin/neutrino" ) {
+        if ( !-e "${prefix}/bin/neutrino" ) {
             print STDERR
               "this prefix does not looks like NEUTRINO installed prefix.\n";
             exit 1;
