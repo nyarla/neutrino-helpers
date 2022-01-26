@@ -95,7 +95,7 @@ Output directory of proceed files.
 
 =head2 -m or --model
 
-The name of NEUTRINO's model name
+The name of NEUTRINO's model
 
 =head2 -s or --styleshift
 
