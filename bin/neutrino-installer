@@ -231,7 +231,7 @@ sub install_model {
 
     my $name = uc $app;
 
-    makedir("${prefix}/share/modles/${name}");
+    makedir("${prefix}/share/models/${name}");
     msg "copy ${app} model";
     copy( "${src}/*/*/*", "${prefix}/share/models/${name}/" );
 }
