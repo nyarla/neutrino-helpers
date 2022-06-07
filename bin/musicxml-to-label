@@ -4,16 +4,16 @@ use strict;
 use warnings;
 use utf8;
 
-our $VERSION = "v0.0.3";
+our $VERSION = "v0.1.0";
 
 use Getopt::Long
   qw( :config posix_default no_ignore_case bundling auto_help auto_version );
 use Pod::Usage qw( pod2usage );
+use File::Temp qw( tempdir );
 
-our $PREFIX =
-  $ENV{'NEUTRINO_PREFIX'} || $ENV{'HOME'} . '/.local/share/neutrino';
+my $prefix = $ENV{'NEUTRINO_PREFIX'} // $ENV{'HOME'} . '/.local/share/neutrino';
 
-sub makedir($) {
+sub mkdir_p ($) {
     my $path = shift;
     return -d $path || system( qw(mkdir -p), $path ) == 0;
 }
@@ -39,7 +39,8 @@ sub main {
         "out|output|o=s"       => \$out,
         "help|h"    => sub { pod2usage( -exitval => 0, -verbose => 1 ); },
         "version|v" =>
-          sub { print(( split q{/}, $0 )[-1], " - ", $VERSION, "\n"); exit 0 },
+          sub { print( ( split q{/}, $0 )[-1], " - ", $VERSION, "\n" ); exit 0 }
+        ,
     ) or pod2usage( -exitval => 1, -verbose => 1 );
 
     if ( $score eq q{} ) {
@@ -63,14 +64,22 @@ sub main {
     }
 
     if ( !-d $out ) {
-        makedir($out);
+        mkdir_p($out);
     }
 
-    my $cmd = <<"...";
-export LD_LIBRARY_PATH=${PREFIX}/lib:\${LD_LIBRARY_PATH:+:}\$LD_LIBRARY_PATH
-test -d settings || cp -R ${PREFIX}/share/settings .
-${PREFIX}/bin/musicxml-to-label ${score} ${out}/full.lab ${out}/mono.lab
-...
+    my $tmpdir = tempdir( CLEANUP => 1 );
+
+    my $cmd = qq<
+export LD_LIBRARY_PATH=${prefix}/dist/NEUTRINO/bin:\${LD_LIBRARY_PATH:+:}\$LD_LIBRARY_PATH
+ 
+cwd=\$(pwd)
+cd "${tmpdir}"
+
+test -d settings || cp -R ${prefix}/dist/NEUTRINO/settings .
+${prefix}/dist/NEUTRINO/bin/musicXMLtoLabel ${score} ${out}/full.lab ${out}/mono.lab
+
+cd \$cwd
+>;
 
     system( qw(sh -c), $cmd );
 }
@@ -99,12 +108,14 @@ A output directory proceed files.
 
 L<https://n3utrino.work>
 
+L<https://github.com/nyarla/neutrino-helpers/>
+
 =head1 AUTHOR OF THIS SCRIPT
 
 OKAMURA Naoki aka nyarla E<lt>nyarla@kalaclista.comE<gt>
 
 =head1 LICENSE
 
-This scripts is licensed under the same terms as Perl.
+This script is same license of Perl itself.
 
 =cut

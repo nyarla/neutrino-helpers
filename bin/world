@@ -4,13 +4,12 @@ use strict;
 use warnings;
 use utf8;
 
-our $VERSION = "v0.0.1";
+our $VERSION = "v0.1.0";
 
 use Getopt::Long qw( :config posix_default no_ignore_case bundling auto_help );
 use Pod::Usage qw( pod2usage );
 
-our $PREFIX =
-  $ENV{'NEUTRINO_PREFIX'} || $ENV{'HOME'} . '/.local/share/neutrino';
+my $prefix = $ENV{'NEUTRINO_PREFIX'} // $ENV{'HOME'} . '/.local/share/neutrino';
 
 sub err {
     my $msg = shift;
@@ -73,9 +72,9 @@ sub main {
     $threads  //= 3;
 
     my $cmd = <<"...";
-export LD_LIBRARY_PATH=${PREFIX}/lib\${LD_LIBRARY_PATH:+:}\$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=${prefix}/dist/NEUTRINO/bin\${LD_LIBRARY_PATH:+:}\$LD_LIBRARY_PATH
 
-${PREFIX}/bin/world ${f0} ${mgc} ${bap} \\
+${prefix}/dist/NEUTRINO/bin/WORLD ${f0} ${mgc} ${bap} \\
   -f ${pitch} -m ${formant} \\
   -p ${spitch} -c ${sformant} -b ${breath} \\
   -o ${out} -n ${threads} -t
@@ -124,12 +123,14 @@ The number of threads use.
 
 L<https://n3utrino.work>
 
+L<https://github.com/nyarla/neutrino-helpers/>
+
 =head1 AUTHOR OF THIS SCRIPT
 
 OKAMURA Naoki aka nyarla E<lt>nyarla@kalaclista.comE<gt>
 
 =head1 LICENSE
 
-This scripts is licensed under the same terms as Perl.
+This script is same license of Perl itself.
 
 =cut
