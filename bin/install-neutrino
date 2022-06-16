@@ -12,6 +12,26 @@ my $prefix = $ENV{'NEUTRINO_PREFIX'} // $ENV{'HOME'} . '/.local/share/neutrino';
 
 my $VERSION = "v0.1.0";
 
+sub which {
+  my $cmd = shift;
+  my $path = `which '${cmd}'`;
+
+  chomp($path);
+
+  return undef if ($path eq q{});
+  return $path;
+}
+
+sub testing_which {
+  my $cmd = which('which');
+
+  like( $cmd, qr{/which$} );
+
+  $cmd = which('');
+
+  is($cmd, undef);
+}
+
 sub unzip {
     my $zip  = shift;
     my $dest = shift;
@@ -122,7 +142,17 @@ sub main {
     return 0;
 }
 
-main(@ARGV);
+sub testing {
+  eval {
+    use Test::More;
+
+    testing_which;
+
+    done_testing;
+  };
+}
+
+(!! $ENV{'HARNESS_ACTIVE'} ? testing(@ARGV) : main(@ARGV));
 
 =encoding utf-8
 
