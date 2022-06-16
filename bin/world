@@ -10,6 +10,8 @@ use Getopt::Long qw( :config posix_default no_ignore_case bundling auto_help );
 use Pod::Usage qw( pod2usage );
 
 my $prefix = $ENV{'NEUTRINO_PREFIX'} // $ENV{'HOME'} . '/.local/share/neutrino';
+my $nproc = `nproc --all --ignore 1`;
+chomp($nproc);
 
 sub err {
     my $msg = shift;
@@ -69,7 +71,7 @@ sub main {
     $spitch   //= 0.0;
     $sformant //= 0.0;
     $breath   //= 0.0;
-    $threads  //= 3;
+    $threads  //= $nproc;
 
     my $cmd = <<"...";
 export LD_LIBRARY_PATH=${prefix}/dist/NEUTRINO/bin\${LD_LIBRARY_PATH:+:}\$LD_LIBRARY_PATH

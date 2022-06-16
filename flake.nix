@@ -14,6 +14,7 @@
             stdenv.cc.cc.lib
             zsh
             cudaPackages.cudatoolkit
+            zlib
           ]) ++ (with p.python3Packages; [
             cffi
             click

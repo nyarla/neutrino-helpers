@@ -11,6 +11,8 @@ use Pod::Usage qw( pod2usage );
 use File::Temp qw( tempdir );
 
 my $prefix = $ENV{'NEUTRINO_PREFIX'} // $ENV{'HOME'} . '/.local/share/neutrino';
+my $nproc = `nproc --all --ignore 1`;
+chomp($nproc);
 
 sub err($) {
     my $msg = shift;
@@ -24,7 +26,7 @@ sub main {
         pod2usage( -exitval => 1, -verbose => 1 );
     }
 
-    my ( $label, $timing, $f0, $mgc, $bap, $model, $out );
+    my ( $label, $timing, $f0, $mgc, $bap, $model, $out, $threads, $gpu );
 
     GetOptions(
         "label|l=s"      => \$label,
@@ -33,6 +35,8 @@ sub main {
         "mgc=s"          => \$mgc,
         "bap=s"          => \$bap,
         "model|m=s"      => \$model,
+        "threads|p=n"    => \$threads,
+        "gpu|i=n"        => \$gpu,
         "out|output|o=s" => \$out,
     ) or pod2usage( -exitval => 1, -verbose => 1 );
 
@@ -71,26 +75,22 @@ sub main {
         exit 1;
     }
 
+    $threads //= $nproc; 
+    $gpu //= 0;
+
     my $tmpdir = tempdir( CLEANUP => 1 );
 
     my $cmd = <<"...";
-#export LD_LIBRARY_PATH=${prefix}/dist/NEUTRINO/bin:\${LD_LIBRARY_PATH:+:}\$LD_LIBRARY_PATH
+export LD_LIBRARY_PATH=${prefix}/dist/NEUTRINO/bin:\${LD_LIBRARY_PATH:+:}\$LD_LIBRARY_PATH
 
 cwd=\$(pwd)
 cd "${tmpdir}"
 
-test -d NSF || mkdir -p NSF
-cp -R ${prefix}/dist/NEUTRINO/NSF/* NSF/
-chmod +x NSF/Run.sh
-
-sed -i "s!/bin/bash!\$(which bash)!" NSF/Run.sh
-sed -i "s!../model!${prefix}/dist/NEUTRINO/model!" NSF/Run.sh
-
-${prefix}/dist/NEUTRINO/bin/NSF_IO \\
+${prefix}/dist/NEUTRINO/bin/NSF \\
   ${label} ${timing} \\
   ${f0} ${mgc} ${bap} \\
-  ${model} \\
-  ${out} -t
+  ${prefix}/dist/NEUTRINO/model/${model}/model_nsf.bin \\
+  ${out} -n ${threads} -i ${gpu} -t
 
 if test -e NSF/NSF.log ; then
   cp NSF/NSF.log \$cwd/NSF.log
@@ -106,11 +106,11 @@ main(@ARGV);
 
 =head1 NAME
 
-nsf-io - A wrapper script for NEUTRINO's nsf-io command
+nsf - A wrapper script for NEUTRINO's nsf-io command
 
 =head1 SYNOPSIS
 
-  $ nsf-io -l out/full.lab -t out/timing.lab --f0 out/MERROW.f0 --mgc out/MERROW.mgc --bap out/MERROW.bap -m MERROW -o test.wav
+  $ nsf -l out/full.lab -t out/timing.lab --f0 out/MERROW.f0 --mgc out/MERROW.mgc --bap out/MERROW.bap -m MERROW -o test.wav
 
 =head1 OPTIONS
 

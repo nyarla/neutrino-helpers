@@ -95,7 +95,7 @@ sub main {
           exit 1;
         }
 
-        for my $bin (qw(NEUTRINO NSF_IO WORLD musicXMLtoLabel)) {
+        for my $bin (qw(NEUTRINO NSF WORLD musicXMLtoLabel)) {
           local $!;
           my $result = system(qq(sh -c 'chmod +x "${prefix}/dist/NEUTRINO/bin/${bin}"'));
           if ($result != 0) {

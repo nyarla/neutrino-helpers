@@ -11,6 +11,8 @@ use Pod::Usage qw( pod2usage );
 use File::Temp qw( tempdir );
 
 my $prefix = $ENV{'NEUTRINO_PREFIX'} // $ENV{'HOME'} . '/.local/share/neutrino';
+my $nproc = `nproc --all --ignore 1`;
+chomp($nproc);
 
 sub err($) {
     my $msg = shift;
@@ -54,7 +56,7 @@ sub main {
         exit 1;
     }
 
-    $threads //= 3;
+    $threads //= $nproc;
     $shift   //= 1;
 
     my $tmpdir = tempdir( CLEANUP => 1 );
