@@ -3,14 +3,13 @@
 use strict;
 use warnings;
 
-use Getopt::Long qw( :config posix_default no_ignore_case bundling );
+our $VERSION = "v0.1.0";
 
 use Pod::Usage qw( pod2usage );
 use File::Temp qw( tempdir );
 
-my $prefix = $ENV{'NEUTRINO_PREFIX'} // $ENV{'HOME'} . '/.local/share/neutrino';
-
-my $VERSION = "v0.1.0";
+our $prefix = $ENV{'NEUTRINO_PREFIX'}
+  // $ENV{'HOME'} . '/.local/share/neutrino';
 
 sub which {
   my $cmd  = shift;
@@ -76,105 +75,150 @@ sub testing_unzip {
   }
 }
 
-sub install_neutrino {
-  my $zip    = shift;
-  my $tmpdir = tempdir( CLEANUP => 1 );
+sub is_neutrino {
+  my $dest = shift;
 
-  unzip( $zip, $tmpdir );
-
-  if ( !-e "${tmpdir}/NEUTRINO" ) {
-    print STDERR "this zip file is not NEUTRINO-Online.zip\n";
-    return !!0;
-  }
-
-  if ( !-e "${prefix}/dist" ) {
-    system( qw(mkdir -p), "${prefix}/dist" );
-  }
-
-  return system( qw(cp -R), "${tmpdir}/NEUTRINO/", "${prefix}/dist/" ) == 0;
-}
-
-sub install_model {
-  my $zip    = shift;
-  my $tmpdir = tempdir( CLEANUP => 1 );
-
-  unzip( $zip, $tmpdir );
-  if ( system(qq( bash -c 'ls "${tmpdir}"| grep NEUTRINO-Library' )) != 0 ) {
-    print STDERR "this zip file is not NEUTRINO Library zip\n";
-    return !!0;
-  }
-
-  if ( !-e "${prefix}/dist/NEUTRINO" ) {
-    print STDERR
-      "NEUTRINO does not installed yet. Please install NEUTRINO first.\n";
-    return !!0;
-  }
-
-  return
-    system(
-    qq( bash -c 'cp -R "${tmpdir}"/*/* "${prefix}"/dist/NEUTRINO/model/' )) ==
-    0;
-}
-
-sub main {
-  local @ARGV = @_;
-
-  if ( @ARGV == 0 ) {
-    pod2usage( -exitval => 1, -verbose => 1 );
-  }
-
-  my $neutrino;
-  my @models;
-
-  GetOptions(
-    "neutrino|n=s" => \$neutrino,
-    "model|m=s"    => \@models,
-    "version|v"    => sub {
-      print "install-neutrino - ${VERSION}", "\n";
-      exit 0;
-    },
-    "help|h" => sub {
-      pod2usage( -exitval => 0, -verbose => 1 );
-    },
-  ) or pod2usage( -exitval => 1, -verbose => 1 );
-
-  if ( !-d $prefix ) {
-    system( qw(mkdir -p), $prefix );
-  }
-
-  if ( $neutrino ne q{} ) {
-    local $@;
-    eval { install_neutrino($neutrino); };
-
-    if ($@) {
-      print STDERR "failed to install NEUTRINO from '${neutrino}': ${@}\n";
-      exit 1;
-    }
-
-    for my $bin (qw(NEUTRINO NSF WORLD musicXMLtoLabel)) {
-      local $!;
-      my $result =
-        system(qq(sh -c 'chmod +x "${prefix}/dist/NEUTRINO/bin/${bin}"'));
-      if ( $result != 0 ) {
-        print STDERR "failed to set executable flag to ${bin} file: ${$!}\n";
-        exit 1;
-      }
-    }
-  }
-
-  if ( @models > 0 ) {
-    for my $model (@models) {
-      local $@;
-      eval { install_model($model); };
-
-      if ($@) {
-        print STDERR "failed to install NEUTRINO model from '${model}': ${@}\n";
-        exit 1;
-      }
-    }
+  if ( -e "${dest}/NEUTRINO" ) {
+    return 1;
   }
 
   return 0;
+}
+
+sub testing_is_neutrino {
+  my $dest = tempdir( CLEANUP => 1 );
+  mkdir "${dest}/NEUTRINO";
+
+  ok( is_neutrino($dest) );
+}
+
+sub is_model {
+  my $bash = which("bash");
+  if ( !defined $bash || $bash eq q{} ) {
+    print STDERR "command not found: bash\n";
+    exit 1;
+  }
+
+  my $grep = which("grep");
+  if ( !defined $grep || $grep eq q{} ) {
+    print STDERR "command not found: grep";
+    exit 1;
+  }
+
+  my $dest   = shift;
+  my $result = system( $bash, '-c', "ls '${dest}' | ${grep} NEUTRINO-Library" );
+
+  return $result == 0;
+}
+
+sub testing_is_model {
+  my $dest = tempdir( CLEANUP => 1 );
+
+  mkdir "${dest}/---NEUTRINO-Library---";
+
+  ok( is_model($dest) );
+}
+
+sub is_zip {
+  my $file = which('file');
+  if ( !defined $file || $file eq q{} ) {
+    print STDERR "command is not found: file\n";
+    exit 1;
+  }
+
+  my $zip = shift;
+  return `"${file}" '${zip}'` =~ m{Zip archive data}s;
+}
+
+sub main {
+  my $bash = which("bash");
+  if ( !defined $bash || $bash eq q{} ) {
+    print STDERR "command not found: bash\n";
+    exit 1;
+  }
+
+  my $success = 0;
+
+  if ( !-e "${prefix}/dist/NEUTRINO/model" ) {
+    my $result = system( qw(mkdir -p), "${prefix}/dist/NEUTRINO/model" );
+    if ( $result != 0 ) {
+      print STDERR "faild to create install directory: ${prefix}/dist\n";
+      exit 1;
+    }
+  }
+
+  my @files = @_;
+  for my $file (@files) {
+    if ( !-e $file ) {
+      print STDERR "file is not found: ${file}\n";
+      next;
+    }
+
+    if ( !is_zip($file) ) {
+      print STDERR "file is not zip archive: ${file}\n";
+      next;
+    }
+
+    my $tmp = tempdir( CLEANUP => 1 );
+    unzip( $file, $tmp );
+
+    if ( is_neutrino($tmp) ) {
+      my $result =
+        system( qw(cp -R), "${tmp}/NEUTRINO/", "${prefix}/dist/" );
+
+      if ( $result != 0 ) {
+        print STDERR "failed to install NEUTRINO-Online to ${prefix}/dist\n";
+        next;
+      }
+
+      $success++;
+      print STDOUT "install NEUTRINO-Online successfully\n";
+      next;
+    }
+
+    if ( is_model($tmp) ) {
+      my $result = system(
+        qq<bash -c 'cp -R "${tmp}"/*/* "${prefix}"/dist/NEUTRINO/model/'>);
+
+      if ( $result != 0 ) {
+        print STDERR "failed to install NEUTRINO Model: ${file}\n";
+        next;
+      }
+
+      $success++;
+      print STDOUT "install NEUTRINO model successfully: ${file}\n";
+      next;
+    }
+
+    print STDERR
+      "this file does not contian NEUTRINO or model files: ${file}\n";
+  }
+
+  return $success > 0;
+}
+
+sub testing_main {
+  my $neutrino = $ENV{'TEST_NEUTRINO_ONLINE'};
+  my $model    = $ENV{'TEST_NEUTRINO_MODEL'};
+
+  my @argv;
+
+  if ( defined $neutrino && -e $neutrino ) {
+    push @argv, $neutrino;
+  }
+
+  if ( defined $model && -e $model ) {
+    push @argv, $model;
+  }
+
+  if ( @argv == 0 ) {
+    return;
+  }
+
+  local $prefix = tempdir( CLEANUP => 1 );
+  ok( main(@argv) );
+  ok( -e "${prefix}/dist/NEUTRINO" );
+  ok( -e "${prefix}/dist/NEUTRINO/model" );
 }
 
 sub testing {
@@ -184,11 +228,20 @@ sub testing {
     testing_which;
     testing_unzip;
 
+    testing_is_neutrino;
+    testing_is_model;
+
+    testing_main;
+
     done_testing;
   };
 }
 
-( !!$ENV{'HARNESS_ACTIVE'} ? testing(@ARGV) : main(@ARGV) );
+(
+  !!$ENV{'HARNESS_ACTIVE'}
+  ? testing(@ARGV)
+  : ( ( main(@ARGV) && exit 0 ) || exit 1 )
+);
 
 =encoding utf-8
 
