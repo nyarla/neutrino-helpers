@@ -13,12 +13,12 @@ my $prefix = $ENV{'NEUTRINO_PREFIX'} // $ENV{'HOME'} . '/.local/share/neutrino';
 my $VERSION = "v0.1.0";
 
 sub which {
-  my $cmd = shift;
+  my $cmd  = shift;
   my $path = `which '${cmd}'`;
 
   chomp($path);
 
-  return undef if ($path eq q{});
+  return undef if ( $path eq q{} );
   return $path;
 }
 
@@ -29,18 +29,51 @@ sub testing_which {
 
   $cmd = which('');
 
-  is($cmd, undef);
+  is( $cmd, undef );
 }
 
 sub unzip {
+  my $unzip = which('unzip');
+  if ( !defined $unzip || $unzip eq q{} ) {
+    print STDERR "command is not found: unzip\n";
+    exit 1;
+  }
+
+  my $file = which('file');
+  if ( !defined $file || $file eq q{} ) {
+    print STDERR "command is not found: file\n";
+    exit 1;
+  }
+
   my $zip  = shift;
   my $dest = shift;
 
   if ( !-e $zip ) {
-    die "zip file does not found: ${zip}";
+    print STDERR "file does not exists: ${zip}\n";
+    exit 1;
   }
 
-  system( qw(unzip -d), $dest, $zip ) == 0;
+  if ( `"${file}" '${zip}'` !~ m{Zip archive data}s ) {
+    print STDERR "this file is not zip archive: ${zip}\n";
+    exit 1;
+  }
+
+  my $result = system( $unzip, '-d', $dest, $zip );
+  if ( $result != 0 ) {
+    print STDERR "failed to unzip file: ${dest}: ${zip}\n";
+  }
+
+  return 1;
+}
+
+sub testing_unzip {
+  my $zip = $ENV{'TEST_NEUTRINO_ONLINE'};
+  if ( defined $zip && -e $zip ) {
+    my $dest = tempdir( CLEANUP => 1 );
+    ok( unzip( $zip, $dest ) );
+
+    ok( -e "${dest}/NEUTRINO" );
+  }
 }
 
 sub install_neutrino {
@@ -149,12 +182,13 @@ sub testing {
     use Test::More;
 
     testing_which;
+    testing_unzip;
 
     done_testing;
   };
 }
 
-(!! $ENV{'HARNESS_ACTIVE'} ? testing(@ARGV) : main(@ARGV));
+( !!$ENV{'HARNESS_ACTIVE'} ? testing(@ARGV) : main(@ARGV) );
 
 =encoding utf-8
 
