@@ -33,113 +33,115 @@ sub testing_which {
 }
 
 sub unzip {
-    my $zip  = shift;
-    my $dest = shift;
+  my $zip  = shift;
+  my $dest = shift;
 
-    if ( !-e $zip ) {
-        die "zip file does not found: ${zip}";
-    }
+  if ( !-e $zip ) {
+    die "zip file does not found: ${zip}";
+  }
 
-    system( qw(unzip -d), $dest, $zip ) == 0;
+  system( qw(unzip -d), $dest, $zip ) == 0;
 }
 
 sub install_neutrino {
-    my $zip    = shift;
-    my $tmpdir = tempdir( CLEANUP => 1 );
+  my $zip    = shift;
+  my $tmpdir = tempdir( CLEANUP => 1 );
 
-    unzip( $zip, $tmpdir );
+  unzip( $zip, $tmpdir );
 
-    if ( !-e "${tmpdir}/NEUTRINO" ) {
-        print STDERR "this zip file is not NEUTRINO-Online.zip\n";
-        return !!0;
-    }
+  if ( !-e "${tmpdir}/NEUTRINO" ) {
+    print STDERR "this zip file is not NEUTRINO-Online.zip\n";
+    return !!0;
+  }
 
-    if ( !-e "${prefix}/dist" ) {
-        system( qw(mkdir -p), "${prefix}/dist" );
-    }
+  if ( !-e "${prefix}/dist" ) {
+    system( qw(mkdir -p), "${prefix}/dist" );
+  }
 
-    return system( qw(cp -R), "${tmpdir}/NEUTRINO/", "${prefix}/dist/" ) == 0;
+  return system( qw(cp -R), "${tmpdir}/NEUTRINO/", "${prefix}/dist/" ) == 0;
 }
 
 sub install_model {
-    my $zip    = shift;
-    my $tmpdir = tempdir( CLEANUP => 1 );
+  my $zip    = shift;
+  my $tmpdir = tempdir( CLEANUP => 1 );
 
-    unzip( $zip, $tmpdir );
-    if ( system( qq( bash -c 'ls "${tmpdir}"| grep NEUTRINO-Library' ) ) != 0) {
-        print STDERR "this zip file is not NEUTRINO Library zip\n";
-        return !!0;
-    }
+  unzip( $zip, $tmpdir );
+  if ( system(qq( bash -c 'ls "${tmpdir}"| grep NEUTRINO-Library' )) != 0 ) {
+    print STDERR "this zip file is not NEUTRINO Library zip\n";
+    return !!0;
+  }
 
-    if ( !-e "${prefix}/dist/NEUTRINO" ) {
-      print STDERR "NEUTRINO does not installed yet. Please install NEUTRINO first.\n";
-      return !!0;
-    }
+  if ( !-e "${prefix}/dist/NEUTRINO" ) {
+    print STDERR
+      "NEUTRINO does not installed yet. Please install NEUTRINO first.\n";
+    return !!0;
+  }
 
-    return system(qq( bash -c 'cp -R "${tmpdir}"/*/* "${prefix}"/dist/NEUTRINO/model/' )) == 0;
+  return
+    system(
+    qq( bash -c 'cp -R "${tmpdir}"/*/* "${prefix}"/dist/NEUTRINO/model/' )) ==
+    0;
 }
 
 sub main {
-    local @ARGV = @_;
+  local @ARGV = @_;
 
-    if ( @ARGV == 0 ) {
-        pod2usage( -exitval => 1, -verbose => 1 );
+  if ( @ARGV == 0 ) {
+    pod2usage( -exitval => 1, -verbose => 1 );
+  }
+
+  my $neutrino;
+  my @models;
+
+  GetOptions(
+    "neutrino|n=s" => \$neutrino,
+    "model|m=s"    => \@models,
+    "version|v"    => sub {
+      print "install-neutrino - ${VERSION}", "\n";
+      exit 0;
+    },
+    "help|h" => sub {
+      pod2usage( -exitval => 0, -verbose => 1 );
+    },
+  ) or pod2usage( -exitval => 1, -verbose => 1 );
+
+  if ( !-d $prefix ) {
+    system( qw(mkdir -p), $prefix );
+  }
+
+  if ( $neutrino ne q{} ) {
+    local $@;
+    eval { install_neutrino($neutrino); };
+
+    if ($@) {
+      print STDERR "failed to install NEUTRINO from '${neutrino}': ${@}\n";
+      exit 1;
     }
 
-    my $neutrino;
-    my @models;
-
-    GetOptions(
-        "neutrino|n=s" => \$neutrino,
-        "model|m=s"    => \@models,
-        "version|v" => sub {
-          print "install-neutrino - ${VERSION}", "\n";
-          exit 0;
-        },
-        "help|h" => sub {
-          pod2usage(-exitval => 0, -verbose =>1);
-        },
-    ) or pod2usage( -exitval => 1, -verbose => 1 );
-
-    if ( !-d $prefix ) {
-        system( qw(mkdir -p), $prefix );
+    for my $bin (qw(NEUTRINO NSF WORLD musicXMLtoLabel)) {
+      local $!;
+      my $result =
+        system(qq(sh -c 'chmod +x "${prefix}/dist/NEUTRINO/bin/${bin}"'));
+      if ( $result != 0 ) {
+        print STDERR "failed to set executable flag to ${bin} file: ${$!}\n";
+        exit 1;
+      }
     }
+  }
 
-    if ( $neutrino ne q{} ) {
-        local $@; eval {
-          install_neutrino($neutrino);
-        };
-        
-        if ($@) {
-          print STDERR "failed to install NEUTRINO from '${neutrino}': ${@}\n";
-          exit 1;
-        }
+  if ( @models > 0 ) {
+    for my $model (@models) {
+      local $@;
+      eval { install_model($model); };
 
-        for my $bin (qw(NEUTRINO NSF WORLD musicXMLtoLabel)) {
-          local $!;
-          my $result = system(qq(sh -c 'chmod +x "${prefix}/dist/NEUTRINO/bin/${bin}"'));
-          if ($result != 0) {
-            print STDERR "failed to set executable flag to ${bin} file: ${$!}\n";
-            exit 1;
-          }
-        }
+      if ($@) {
+        print STDERR "failed to install NEUTRINO model from '${model}': ${@}\n";
+        exit 1;
+      }
     }
+  }
 
-    if ( @models > 0 ) {
-        for my $model (@models) {
-          local $@;
-          eval {
-            install_model($model);
-          };
-
-          if ($@) {
-            print STDERR "failed to install NEUTRINO model from '${model}': ${@}\n";
-            exit 1;
-          }
-        }
-    }
-
-    return 0;
+  return 0;
 }
 
 sub testing {
