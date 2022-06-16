@@ -11,57 +11,56 @@ use Pod::Usage qw( pod2usage );
 use File::Temp qw( tempdir );
 
 my $prefix = $ENV{'NEUTRINO_PREFIX'} // $ENV{'HOME'} . '/.local/share/neutrino';
-my $nproc = `nproc --all --ignore 1`;
+my $nproc  = `nproc --all --ignore 1`;
 chomp($nproc);
 
 sub err($) {
-    my $msg = shift;
-    print STDERR ( $msg, "\n" );
+  my $msg = shift;
+  print STDERR ( $msg, "\n" );
 }
 
 sub main {
-    local @ARGV = @_;
+  local @ARGV = @_;
 
-    if ( @ARGV == 0 ) {
-        pod2usage( -exitval => 1, -verbose => 1 );
-    }
+  if ( @ARGV == 0 ) {
+    pod2usage( -exitval => 1, -verbose => 1 );
+  }
 
-    my ( $label, $timing, $out, $model, $threads, $shift );
+  my ( $label, $timing, $out, $model, $threads, $shift );
 
-    GetOptions(
-        "label|l=s"      => \$label,
-        "timing|t=s"     => \$timing,
-        "out|output|o=s" => \$out,
-        "model|m=s"      => \$model,
-        "threads|p=i"    => \$threads,
-        "styleshift|s=i" => \$shift,
-        "help|h"         => sub { pod2usage( -exitval => 0, -verbose => 1 ); },
-        "version|v"      =>
-          sub { print( ( split q{/}, $0 )[-1], " - ", $VERSION, "\n" ); exit 0 }
-        ,
-    ) or pod2usage( -exitval => 1, -verbose => 1 );
+  GetOptions(
+    "label|l=s"      => \$label,
+    "timing|t=s"     => \$timing,
+    "out|output|o=s" => \$out,
+    "model|m=s"      => \$model,
+    "threads|p=i"    => \$threads,
+    "styleshift|s=i" => \$shift,
+    "help|h"         => sub { pod2usage( -exitval => 0, -verbose => 1 ); },
+    "version|v"      =>
+      sub { print( ( split q{/}, $0 )[-1], " - ", $VERSION, "\n" ); exit 0 },
+  ) or pod2usage( -exitval => 1, -verbose => 1 );
 
-    if ( !-f $label ) {
-          err "label file is missing: ${label}";
-        exit 1;
-    }
+  if ( !-f $label ) {
+      err "label file is missing: ${label}";
+    exit 1;
+  }
 
-    if ( !-d $out && -e $out ) {
-          err "output directory already exists as file: ${out}";
-        exit 1;
-    }
+  if ( !-d $out && -e $out ) {
+      err "output directory already exists as file: ${out}";
+    exit 1;
+  }
 
-    if ( !-d "${prefix}/dist/NEUTRINO/model/${model}" ) {
-          err "missing models files: ${model}";
-        exit 1;
-    }
+  if ( !-d "${prefix}/dist/NEUTRINO/model/${model}" ) {
+      err "missing models files: ${model}";
+    exit 1;
+  }
 
-    $threads //= $nproc;
-    $shift   //= 1;
+  $threads //= $nproc;
+  $shift   //= 1;
 
-    my $tmpdir = tempdir( CLEANUP => 1 );
+  my $tmpdir = tempdir( CLEANUP => 1 );
 
-    my $cmd = <<"...";
+  my $cmd = <<"...";
 export LD_LIBRARY_PATH=${prefix}/dist/NEUTRINO/bin:\${LD_LIBRARY_PATH:+:}\$LD_LIBRARY_PATH
 
 cwd=\$(pwd)
@@ -77,7 +76,7 @@ ${prefix}/dist/NEUTRINO/bin/NEUTRINO \\
 cd \$cwd
 ...
 
-    system( qw(sh -c), $cmd );
+  system( qw(sh -c), $cmd );
 }
 
 main(@ARGV);

@@ -14,62 +14,61 @@ use File::Temp qw( tempdir );
 my $prefix = $ENV{'NEUTRINO_PREFIX'} // $ENV{'HOME'} . '/.local/share/neutrino';
 
 sub mkdir_p ($) {
-    my $path = shift;
-    return -d $path || system( qw(mkdir -p), $path ) == 0;
+  my $path = shift;
+  return -d $path || system( qw(mkdir -p), $path ) == 0;
 }
 
 sub err($) {
-    my $msg = shift;
-    print STDERR ( $msg, "\n" );
-    exit 1;
+  my $msg = shift;
+  print STDERR ( $msg, "\n" );
+  exit 1;
 }
 
 sub main {
-    local @ARGV = @_;
+  local @ARGV = @_;
 
-    if ( @ARGV == 0 ) {
-        pod2usage( -exitval => 0, -verbose => 1 );
-    }
+  if ( @ARGV == 0 ) {
+    pod2usage( -exitval => 0, -verbose => 1 );
+  }
 
-    my $score = q{};
-    my $out   = q{};
+  my $score = q{};
+  my $out   = q{};
 
-    GetOptions(
-        "score|musicxml|s|x=s" => \$score,
-        "out|output|o=s"       => \$out,
-        "help|h"    => sub { pod2usage( -exitval => 0, -verbose => 1 ); },
-        "version|v" =>
-          sub { print( ( split q{/}, $0 )[-1], " - ", $VERSION, "\n" ); exit 0 }
-        ,
-    ) or pod2usage( -exitval => 1, -verbose => 1 );
+  GetOptions(
+    "score|musicxml|s|x=s" => \$score,
+    "out|output|o=s"       => \$out,
+    "help|h"    => sub { pod2usage( -exitval => 0, -verbose => 1 ); },
+    "version|v" =>
+      sub { print( ( split q{/}, $0 )[-1], " - ", $VERSION, "\n" ); exit 0 },
+  ) or pod2usage( -exitval => 1, -verbose => 1 );
 
-    if ( $score eq q{} ) {
-          err "argument `score` is empty.";
-    }
+  if ( $score eq q{} ) {
+      err "argument `score` is empty.";
+  }
 
-    if ( !-e $score ) {
-          err "argument `score` (${score}) does not exists";
-    }
+  if ( !-e $score ) {
+      err "argument `score` (${score}) does not exists";
+  }
 
-    if ( -d $score ) {
-          err "argument `score` is not file. it looks like directory?";
-    }
+  if ( -d $score ) {
+      err "argument `score` is not file. it looks like directory?";
+  }
 
-    if ( $out eq q{} ) {
-          err "argument `out` is empty.";
-    }
+  if ( $out eq q{} ) {
+      err "argument `out` is empty.";
+  }
 
-    if ( -e $out && !-d $out ) {
-          err "output directory already exists as file";
-    }
+  if ( -e $out && !-d $out ) {
+      err "output directory already exists as file";
+  }
 
-    if ( !-d $out ) {
-        mkdir_p($out);
-    }
+  if ( !-d $out ) {
+    mkdir_p($out);
+  }
 
-    my $tmpdir = tempdir( CLEANUP => 1 );
+  my $tmpdir = tempdir( CLEANUP => 1 );
 
-    my $cmd = qq<
+  my $cmd = qq<
 export LD_LIBRARY_PATH=${prefix}/dist/NEUTRINO/bin:\${LD_LIBRARY_PATH:+:}\$LD_LIBRARY_PATH
  
 cwd=\$(pwd)
@@ -81,7 +80,7 @@ ${prefix}/dist/NEUTRINO/bin/musicXMLtoLabel ${score} ${out}/full.lab ${out}/mono
 cd \$cwd
 >;
 
-    system( qw(sh -c), $cmd );
+  system( qw(sh -c), $cmd );
 }
 
 main(@ARGV);

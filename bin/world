@@ -10,70 +10,70 @@ use Getopt::Long qw( :config posix_default no_ignore_case bundling auto_help );
 use Pod::Usage qw( pod2usage );
 
 my $prefix = $ENV{'NEUTRINO_PREFIX'} // $ENV{'HOME'} . '/.local/share/neutrino';
-my $nproc = `nproc --all --ignore 1`;
+my $nproc  = `nproc --all --ignore 1`;
 chomp($nproc);
 
 sub err {
-    my $msg = shift;
-    print STDERR ( $msg, "\n" );
+  my $msg = shift;
+  print STDERR ( $msg, "\n" );
 }
 
 sub main {
-    local @ARGV = @_;
+  local @ARGV = @_;
 
-    if ( @ARGV == 0 ) {
-        pod2usage( -exitval => 1, -verbose => 1 );
-    }
+  if ( @ARGV == 0 ) {
+    pod2usage( -exitval => 1, -verbose => 1 );
+  }
 
-    my (
-        $f0,     $mgc,      $bap,    $pitch,   $formant,
-        $spitch, $sformant, $breath, $threads, $out
-    );
+  my (
+    $f0,     $mgc,      $bap,    $pitch,   $formant,
+    $spitch, $sformant, $breath, $threads, $out
+  );
 
-    GetOptions(
-        "f0=s"                  => \$f0,
-        "mgc=s"                 => \$mgc,
-        "bap=s"                 => \$bap,
-        "pitchShift=f"          => \$pitch,
-        "formantShift=f"        => \$formant,
-        "smoothPitch=f"         => \$spitch,
-        "smoothFormant=f"       => \$sformant,
-        "enhancedBreathiness=f" => \$breath,
-        "out|output|o=s"        => \$out,
-        "threads|p=s"            => \$threads,
-        "help|h"    => sub { pod2usage( -exitval => 0, -verbose => 1 ); },
-        "version|v" =>
-          sub { print(( split q{/}, $0 )[-1], " - ", $VERSION, "\n"); exit 0 },
-    ) or pod2usage( -exitval => 1, -verbose => 1 );
+  GetOptions(
+    "f0=s"                  => \$f0,
+    "mgc=s"                 => \$mgc,
+    "bap=s"                 => \$bap,
+    "pitchShift=f"          => \$pitch,
+    "formantShift=f"        => \$formant,
+    "smoothPitch=f"         => \$spitch,
+    "smoothFormant=f"       => \$sformant,
+    "enhancedBreathiness=f" => \$breath,
+    "out|output|o=s"        => \$out,
+    "threads|p=s"           => \$threads,
+    "help|h"    => sub { pod2usage( -exitval => 0, -verbose => 1 ); },
+    "version|v" =>
+      sub { print( ( split q{/}, $0 )[-1], " - ", $VERSION, "\n" ); exit 0 },
+  ) or pod2usage( -exitval => 1, -verbose => 1 );
 
-    if ( !-e $f0 ) {
-          err ".f0 file missing: ${f0}";
-        exit 1;
-    }
+  if ( !-e $f0 ) {
+      err ".f0 file missing: ${f0}";
+    exit 1;
+  }
 
-    if ( !-e $mgc ) {
-          err ".mgc file missing: ${mgc}";
-        exit 1;
-    }
+  if ( !-e $mgc ) {
+      err ".mgc file missing: ${mgc}";
+    exit 1;
+  }
 
-    if ( !-e $bap ) {
-          err ".bap file missing: ${bap}";
-        exit 1;
-    }
+  if ( !-e $bap ) {
+      err ".bap file missing: ${bap}";
+    exit 1;
+  }
 
-    if ( -d $out ) {
-          err "ouput path already exists as directory: ${out}";
-        exit 1;
-    }
+  if ( -d $out ) {
+      err "ouput path already exists as directory: ${out}";
+    exit 1;
+  }
 
-    $pitch    //= 1.0;
-    $formant  //= 1.0;
-    $spitch   //= 0.0;
-    $sformant //= 0.0;
-    $breath   //= 0.0;
-    $threads  //= $nproc;
+  $pitch    //= 1.0;
+  $formant  //= 1.0;
+  $spitch   //= 0.0;
+  $sformant //= 0.0;
+  $breath   //= 0.0;
+  $threads  //= $nproc;
 
-    my $cmd = <<"...";
+  my $cmd = <<"...";
 export LD_LIBRARY_PATH=${prefix}/dist/NEUTRINO/bin\${LD_LIBRARY_PATH:+:}\$LD_LIBRARY_PATH
 
 ${prefix}/dist/NEUTRINO/bin/WORLD ${f0} ${mgc} ${bap} \\
@@ -82,7 +82,7 @@ ${prefix}/dist/NEUTRINO/bin/WORLD ${f0} ${mgc} ${bap} \\
   -o ${out} -n ${threads} -t
 ...
 
-    system( qw(sh -c), $cmd );
+  system( qw(sh -c), $cmd );
 }
 
 main(@ARGV);
