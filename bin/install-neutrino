@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 
-our $VERSION = "v0.1.0";
+our $VERSION = "v0.2.0";
 
 use Pod::Usage qw( pod2usage );
 use File::Temp qw( tempdir );
@@ -131,6 +131,19 @@ sub is_zip {
 }
 
 sub main {
+  if ( @_ == 0 ) {
+    pod2usage( -exitval => 0, -verbose => 2 );
+  }
+
+  if ( $_[0] eq '-h' || $_[0] eq '--help' ) {
+    pod2usage( -exitval => 0, verbose => 1 );
+  }
+
+  if ( $_[0] eq '-v' || $_[0] eq '--version' ) {
+    print STDOUT "install-neutrino - ${VERSION}\n";
+    exit 0;
+  }
+
   my $bash = which("bash");
   if ( !defined $bash || $bash eq q{} ) {
     print STDERR "command not found: bash\n";
@@ -163,8 +176,7 @@ sub main {
     unzip( $file, $tmp );
 
     if ( is_neutrino($tmp) ) {
-      my $result =
-        system( qw(cp -R), "${tmp}/NEUTRINO/", "${prefix}/dist/" );
+      my $result = system( qw(cp -R), "${tmp}/NEUTRINO/", "${prefix}/dist/" );
 
       if ( $result != 0 ) {
         print STDERR "failed to install NEUTRINO-Online to ${prefix}/dist\n";
@@ -250,22 +262,12 @@ sub testing {
 install-neutrino - Installer script for NEUTRINO AI Singing Synthizer.
 
 =head1 USAGE
+ 
+  $ install-neutrino ~/Downloads/NEUTRINO-Online-v1.1.0.zip ~/Downloads/"No.7（NEUTRINO-Library）.zip" ...
 
-  # install NEUTRINO
-  $ install-neutrino -n ~/Downloads/NEUTRINO-Online.zip
+=head1 SUPPORTED VERSION
 
-  # install NEUTRINO models
-  $ install-neutrino -m ~/Downloads/"No.7（NEUTRINO-Library）.zip"
-
-=head1 OPTIONS
-
-=head2 -n or --neutrino
-
-Install NEUTRINO VI Singing Synthizer from local zip file.
-
-=head2 -m or --model
-
-Install NEUTRINO Models from local zip file.
+NEUTRINO v1.1.0
 
 =head1 SEE ALSO
 
